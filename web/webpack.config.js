@@ -14,6 +14,9 @@ module.exports = {
       }
     ]
   },
+  resolve: {
+    extensions: ['.js', '.jsx']
+  },
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js'
@@ -21,6 +24,7 @@ module.exports = {
   devServer: {
     port: 3000,
     hot: true,
+    open: 'Google Chrome',
     publicPath: 'http://localhost3000/dist/',
     contentBase: path.join(__dirname, 'static')
   },

@@ -1,4 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import BoardRoom from './BoardRoom';
 
-ReactDOM.render(<h2>hello world</h2>, document.getElementById('root'));
+ReactDOM.render(<BoardRoom />, document.getElementById('root'));
