@@ -21,9 +21,13 @@ const BoardRoom = () => {
     <>
       <ParticipantFrame
         ws={ws}
+        capture
+      />
+      <ParticipantFrame
+        ws={ws}
       />
     </>
   ) : <div>connecting...</div>;
-}
+};
 
 export default BoardRoom;
