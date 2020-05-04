@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-const ParticipantFrame = ({ ws, capture }) => {
+const ParticipantFrame = ({ ws, capture, id }) => {
   const videoContainer = useRef();
 
   useEffect(() => {
@@ -9,7 +9,7 @@ const ParticipantFrame = ({ ws, capture }) => {
     if (capture) {
       navigator.mediaDevices.getUserMedia({
         video: {
-          frameRate: 10
+          frameRate: 30
         }
       }).then((stream) => {
         videoContainer.current.srcObject = stream;
@@ -21,22 +21,26 @@ const ParticipantFrame = ({ ws, capture }) => {
         );
         console.log(recorder.mimeType);
         recorder.ondataavailable = ({ data }) => {
-          data.arrayBuffer().then((buffer) => {
+          (new Blob([Uint8Array.from([3, id]), data])).arrayBuffer().then((buffer) => {
             ws.send(buffer);
           });
         }
-        recorder.start(1000);
+        recorder.start(33);
       });
     } else {
       const streamSource = new MediaSource();
       videoContainer.current.src = URL.createObjectURL(streamSource);
       streamSource.onsourceopen = () => {
         const vidBuffer = streamSource.addSourceBuffer('video/webm; codecs="vp8"');
-        ws.onmessage = ({ data }) => {
+        ws.addEventListener('message', ({ data }) => {
           data.arrayBuffer().then((buffer) => {
-            vidBuffer.appendBuffer(buffer);
+            const bArray = new Uint8Array(buffer);
+            if (bArray[0] == 3 && bArray[1] == id) {
+              const payload = bArray.subarray(2);
+              vidBuffer.appendBuffer(payload.buffer.slice(payload.byteOffset, payload.byteLength + payload.byteOffset));
+            }
           });
-        };
+        });
       };
     }
 
@@ -46,10 +50,12 @@ const ParticipantFrame = ({ ws, capture }) => {
   }, []);
 
   return (
-      <video
-        autoPlay
-        ref={videoContainer}
-      />
+      <>
+        <video
+          autoPlay
+          ref={videoContainer}
+        />
+      </>
     );
 };
 
