@@ -25,7 +25,7 @@ const ParticipantFrame = ({ ws, capture, id }) => {
             ws.send(buffer);
           });
         }
-        recorder.start(33);
+        recorder.start(1000);
       });
     } else {
       const streamSource = new MediaSource();
@@ -36,7 +36,9 @@ const ParticipantFrame = ({ ws, capture, id }) => {
           data.arrayBuffer().then((buffer) => {
             const bArray = new Uint8Array(buffer);
             if (bArray[0] == 3 && bArray[1] == id) {
+              console.log(buffer);
               const payload = bArray.subarray(2);
+              console.log(payload.buffer.slice(payload.byteOffset, payload.byteLength + payload.byteOffset));
               vidBuffer.appendBuffer(payload.buffer.slice(payload.byteOffset, payload.byteLength + payload.byteOffset));
             }
           });

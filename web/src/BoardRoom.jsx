@@ -29,11 +29,10 @@ const BoardRoom = () => {
               setMyID(bArray[1]);
               ws.send(Uint8Array.from([1]).buffer);
             case 2:
-              // new participant
-              if (bArray[1] !== myID) {
-                console.log('new part' + bArray[1]);
-                setParticipants([...participants, bArray[1]]);
-              }
+              // update participants
+              const newPartList = bArray.slice(1);
+              console.log('update participants' + newPartList);
+              setParticipants(newPartList);
             default:
               break
           };
@@ -53,13 +52,13 @@ const BoardRoom = () => {
           id={myID}
         />
       )}
-      {myID !== null && participants.filter(pid => pid != myID).map(pid => (
+      {myID !== null && Array.from(participants).filter(pid => pid !== myID).map(pid => 
         <ParticipantFrame
           key={pid}
           ws={ws}
           id={pid}
         />
-      ))}
+      )}
     </>
   ) : <div>connecting...</div>;
 };

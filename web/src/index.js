@@ -1,5 +1,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import BoardRoom from './BoardRoom';
+import { SignalWrapper } from './SignalContext';
+import Room from './Room';
 
-ReactDOM.render(<BoardRoom />, document.getElementById('root'));
+ReactDOM.render(
+  (
+    <SignalWrapper>
+      <Room />
+    </SignalWrapper>
+  ),
+  document.getElementById('root')
+);
