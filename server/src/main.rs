@@ -81,7 +81,9 @@ impl Handler for ConnectionHandler {
                                                 PayloadType::CandidateInfo 
                                                 | PayloadType::SDPOffer
                                                 | PayloadType::SDPAnswer => {
-                                                    Ok(())
+                                                    self.senders.borrow()
+                                                        .get(&(json_obj["receiverID"].as_u8().unwrap()))
+                                                        .unwrap().send(v)
                                                 },
                                                 _ => {
                                                     println!("Unknown payload type. Closing...");

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { SignalContext } from './SignalContext';
 
 const pcConfig = {
@@ -16,13 +16,15 @@ const Room = () => {
   const [peers, setPeers] = useState({});
   const [stream, setStream] = useState();
   const { ws, clientID } = useContext(SignalContext);
+  const myVideo = useRef();
 
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({
       audio: true,
       video: true
-    }).then((stream) => {
-      setStream(stream);
+    }).then((mediaStream) => {
+      setStream(mediaStream);
+      myVideo.current.srcObject = mediaStream;
       // send new participant message to server
       ws.send(
         JSON.stringify({
@@ -34,7 +36,7 @@ const Room = () => {
   }, []);
   
   useEffect(() => {
-    // send new participant message to server
+    if (!stream) { return; }
     ws.onmessage = ({ data: raw }) => {
       const data = JSON.parse(raw);
       console.log('received data:');
@@ -47,8 +49,15 @@ const Room = () => {
           const { participantID } = data;
           if (clientID !== participantID) {
             const p = new RTCPeerConnection(pcConfig);
+            p.ontrack = ({ streams }) => {
+              const vid = document.getElementById(participantID);
+              if (vid.srcObject !== streams[0]) {
+                console.log(streams[0]);
+                vid.srcObject = streams[0];
+              }
+            }
             p.onicecandidate = ({ candidate }) => {
-              console.log('asdf');
+              console.log('onicecandidate');
               if (candidate) {
                 // send candidate info to new participant
                 // opcode 3, from clientID to participant id
@@ -65,17 +74,43 @@ const Room = () => {
             // add local stream to p
             stream.getTracks().forEach(track => p.addTrack(track, stream));
 
+            // create offer
+            p.createOffer(offerOptions).then((desc) => {
+              // send desc to remote
+              // opcode 4, from clientID to senderID
+              ws.send(
+                JSON.stringify({
+                  type: 4,
+                  senderID: clientID,
+                  receiverID: participantID,
+                  description: desc.toJSON()
+                })
+              );
+              // set local description,
+              // triggering onicecandidate callback
+              p.setLocalDescription(desc);
+            });
+
             peers[participantID] = p;
-            setPeers(peers);
+            setPeers(Object.assign({}, peers));
           }
           break;
         }
         case 3: {
           // candidate info received
           const { senderID, candidate } = data;
+
+          // The candidate info arrived at the new participant before the offer
+          // Create the PC here.
           if (!(senderID in peers)) {
-            // I am the new participant - every other participant is sending me candidate info
             const p = new RTCPeerConnection(pcConfig);
+            p.ontrack = ({ streams }) => {
+              const vid = document.getElementById(senderID);
+              if (vid.srcObject !== streams[0]) {
+                console.log(streams[0]);
+                vid.srcObject = streams[0];
+              }
+            }
             p.onicecandidate = ({ candidate }) => {
               if (candidate) {
                 ws.send(
@@ -92,36 +127,49 @@ const Room = () => {
             p.addIceCandidate(new RTCIceCandidate(candidate));
 
             peers[senderID] = p;
-            setPeers(peers);
+            setPeers(Object.assign({}, peers));
           } else {
             // the new participant sent me its candidate info
             const p = peers[senderID];
             p.addIceCandidate(new RTCIceCandidate(candidate));
 
-            // create offer
-            p.createOffer(offerOptions).then((desc) => {
-              p.setLocalDescription(desc);
-              // send desc to remote
-              // opcode 4, from clientID to senderID
-              ws.send(
-                JSON.stringify({
-                  type: 4,
-                  senderID: clientID,
-                  receiverID: senderID,
-                  description: desc.toJSON()
-                })
-              );
-            });
-
-            setPeers(peers);
+            setPeers(Object.assign({}, peers));
           }
           break;
         }
         case 4: {
           // new participant received offer
           const { senderID, description } = data;
-          const p = peers[senderID];
 
+          // participant will probably receive the offer before
+          // receiving candidate information. Create PC here.
+          if (!(senderID in peers)) {
+            const p = new RTCPeerConnection(pcConfig);
+            p.ontrack = ({ streams }) => {
+              const vid = document.getElementById(senderID);
+              if (vid.srcObject !== streams[0]) {
+                console.log(streams[0]);
+                vid.srcObject = streams[0];
+              }
+            }
+            p.onicecandidate = ({ candidate }) => {
+              if (candidate) {
+                ws.send(
+                  JSON.stringify({
+                      type: 3,
+                      senderID: clientID,
+                      receiverID: senderID,
+                      candidate: candidate.toJSON()
+                  })
+                );
+              }
+            }
+            stream.getTracks().forEach(track => p.addTrack(track, stream));
+            peers[senderID] = p;
+          }
+
+          // proceed to set the remote description
+          const p = peers[senderID];
           p.setRemoteDescription(new RTCSessionDescription(description));
 
           // create answer
@@ -138,23 +186,41 @@ const Room = () => {
             );
           });
 
-          setPeers(peers);
+          setPeers(Object.assign({}, peers));
           break;
         }
         case 5: {
           // new participant send me answer
           const { senderID, description } = data;
-          peers[senderID].setRemoteDescription(new RTCSessionDescription(description));
-          setPeers(peers);
+          const p = peers[senderID];
+          p.setRemoteDescription(new RTCSessionDescription(description));
+          setPeers(Object.assign({}, peers));
           break;
         }
-        default:
+        default: {
           break;
+        }
       }
     }
   }, [peers, stream]);
 
-  return null;
+  return (
+    <>
+      <video
+        autoPlay
+        ref={myVideo}
+      />
+      {
+        Object.keys(peers).map((pid) => 
+          <video
+            key={pid}
+            id={pid}
+            autoPlay
+          />
+        )
+      }
+    </>
+  )
 }
 
 export default Room;
