@@ -1,2 +1,3 @@
 # osc
-work in progress
+
+Multiple user webchat with WebRTC & a Rust WS signaling server
